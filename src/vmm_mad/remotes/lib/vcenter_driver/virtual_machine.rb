@@ -836,6 +836,8 @@ class Template
             # the object being imported
             one_tmp = {}
             one_tmp[:name]                  = import_name
+            one_tmp[:ref]                   = template_ref
+            one_tmp[:dc_name]               = dc_name
             one_tmp[:template_name]         = template_name
             one_tmp[:sunstone_template_name]= "#{template_name} [ Cluster: #{template_ccr_name} - Template location: #{location} ]"
             one_tmp[:template_hash]         = template_hash
@@ -848,6 +850,7 @@ class Template
             one_tmp[:rp_list]               = rp_list
             one_tmp[:template]              = template
             one_tmp[:import_disks_and_nics] = true # By default we import disks and nics
+
 
             # Get the host ID of the OpenNebula host which represents the vCenter Cluster
             host_id = nil
@@ -3188,5 +3191,39 @@ class VirtualMachine < Template
 
     ###############################################################################################
 end # class VirtualMachine
+
+class VmImporter < VCenterDriver::VcImporter
+
+    def initialize(one_client, vi_client)
+        super(one_client, vi_client)
+        @one_class = OpenNebula::Template
+    end
+
+    def get_list(&block)
+
+        dc_folder = VCenterDriver::DatacenterFolder.new(@vi_client)
+
+        # Get OpenNebula's templates pool
+        tpool = VCenterDriver::VIHelper.one_pool(OpenNebula::TemplatePool, false)
+        if tpool.respond_to?(:message)
+            raise "Could not get OpenNebula TemplatePool: #{tpool.message}"
+        end
+
+        rs = dc_folder.get_unimported_templates(@vi_client, tpool)
+    end
+
+    def add_cluster(cid, eid)
+    end
+
+    def remove_default(id)
+    end
+
+    def import(selected)
+    end
+
+    def rollback
+    end
+end
+
 
 end # module VCenterDriver

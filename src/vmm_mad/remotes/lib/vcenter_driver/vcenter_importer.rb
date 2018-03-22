@@ -33,6 +33,8 @@ module VCenterDriver
             case type
             when "datastores"
                 VCenterDriver::DsImporter.new(one_client, vi_client)
+            when "templates"
+                VCenterDriver::VmImporter.new(one_client, vi_client)
             else
                 raise "unknown object type"
             end

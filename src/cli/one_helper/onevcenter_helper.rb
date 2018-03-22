@@ -19,6 +19,20 @@ require 'one_helper'
 
 class OneVcenterHelper < OpenNebulaHelper::OneHelper
 
+    TABLE = {
+        "datastores" => {
+            :struct  => ["DATASTORE_LIST", "DATASTORE"],
+            :columns => [:IMID, :REF, :VCENTER, :NAME, :CLUSTERS]
+        },
+        "networks" => {
+            :struct  => ["NETWORK_LIST", "NETWORK"],
+            :columns => [:IMID, :REF, :VCENTER, :NAME, :CLUSTERS]
+        },
+        "templates" => {
+            :struct  => ["NETWORK_LIST", "NETWORK"],
+            :columns => [:IMID, :REF, :VCENTER, :NAME]
+        }
+    }
 
     def connection_options(object_name, options)
         if  options[:vuser].nil? || options[:vcenter].nil?
@@ -36,23 +50,18 @@ class OneVcenterHelper < OpenNebulaHelper::OneHelper
         }
     end
 
-    TABLE = {
-        "datastores" => ["DATASTORE_LIST", "DATASTORE"],
-        "networks" => ["NETWORK_LIST", "NETWORK"],
-        "templates" => ["TEMPLATE_LIST", "TEMPLATE"]
-    }
     def cli_format(o, hash)
-        {TABLE[o].first => {TABLE[o].last => hash.values}}
+        {TABLE[o][:struct].first => {TABLE[o][:struct].last => hash.values}}
     end
 
     def list_object(options, list)
         list = cli_format(options[:object], list)
-        table = format_list(options)
+        table = format_list(options[:object])
         table.show(list)
     end
 
 
-    def format_list(options)
+    def format_list(type)
         table = CLIHelper::ShowTable.new() do
             column :IMID, "identifier for ...", :size=>4 do |d|
                 d[:import_id]
@@ -67,14 +76,14 @@ class OneVcenterHelper < OpenNebulaHelper::OneHelper
             end
 
             column :NAME, "Name", :left, :size=>20 do |d|
-                d[:simple_name]
+                d[:name] || d[:simple_name]
             end
 
             column :CLUSTERS, "CLUSTERS", :left, :size=>10 do |d|
                 d[:cluster].to_s
             end
 
-            default :IMID, :REF, :VCENTER, :NAME, :CLUSTERS
+            default(*TABLE[type][:columns])
         end
 
         table
