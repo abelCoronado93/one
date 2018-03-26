@@ -34,6 +34,9 @@ define(function(require) {
   var EmptyFieldsetHTML = require('hbs!./common/empty-fieldset');
   var FieldsetTableHTML = require('hbs!./common/fieldset-table');
 
+  var path = "/vcenter/templates";
+  var resource = "Template";
+
   function VCenterTemplates() {
     return this;
   }
@@ -49,18 +52,14 @@ define(function(require) {
 
   /*
     Retrieve the list of templates from vCenter and fill the container with them
+
     opts = {
-      datacenter: "Datacenter Name",
-      cluster: "Cluster Name",
       container: Jquery div to inject the html,
-      vcenter_user: vCenter Username,
-      vcenter_password: vCenter Password,
-      vcenter_host: vCenter Host
+      selectedHost: Host selected for vCenter credentials
     }
    */
   function _fillVCenterTemplates(opts) {
     this.opts = opts;
-    var path = '/vcenter/templates';
 
     var context = $(".vcenter_import", opts.container);
     context.html(TemplateHTML());
@@ -69,94 +68,46 @@ define(function(require) {
     $.ajax({
       url: path,
       type: "GET",
-      data: {timeout: false},
+      data: { host: opts.selectedHost, timeout: false},
       dataType: "json",
-      headers: {
-        "X-VCENTER-USER": opts.vcenter_user,
-        "X-VCENTER-PASSWORD": opts.vcenter_password,
-        "X-VCENTER-HOST": opts.vcenter_host
-      },
       success: function(response){
         $(".vcenter_datacenter_list", context).html("");
 
-        $.each(response, function(datacenter_name, elements){
-          var content;
-          if (elements.length == 0) {
-            content = EmptyFieldsetHTML({
-              title : datacenter_name + ' ' + Locale.tr("DataCenter"),
-              message : Locale.tr("No new templates found in this DataCenter")
-            });
+        if (response.length === 0){
+          content = EmptyFieldsetHTML({
+            title : Locale.tr("vCenter Templates"),
+            message : Locale.tr("No new templates found")
+          });
+          $(".vcenter_datacenter_list", context).append(content);
 
-            $(".vcenter_datacenter_list", context).append(content);
-          } else {
-            var tableId = "vcenter_import_table_" + UniqueId.id();
+        } else {
+          var tableId = "vcenter_import_table_" + UniqueId.id();
             content = FieldsetTableHTML({
               tableId : tableId,
-              title : datacenter_name + ' ' + Locale.tr("DataCenter"),
-              clearImported : Locale.tr("Clear Imported Templates"),
+              title : Locale.tr("vCenter Templates"),
               toggleAdvanced : true,
               columns : [
                 '<input type="checkbox" class="check_all"/>',
-                Locale.tr("Template")
+                Locale.tr("Template"),
+                ""
               ]
             });
 
             var newdiv = $(content).appendTo($(".vcenter_datacenter_list", context));
             var tbody = $('#' + tableId + ' tbody', context);
 
-            $.each(elements, function(id, element) {
+            $.each(response, function(template_name, element){
               var opts = {};
-
               opts.data = element;
               opts.id = UniqueId.id();
-
               if (element.rp && element.rp !== '') {
                 opts.resourcePool = UserInputs.unmarshall(element.rp);
                 opts.resourcePool.params = opts.resourcePool.params.split(",");
-               /* $.each(opts.resourcePool.params, function(){
-                  $("#available_rps_" + opts.id + " [value ='" + this + "']").mousedown(function(e) {
-                    e.preventDefault();
-                    $(this).prop('selected', !$(this).prop('selected'));
-                    return false;
-                  });
-                });*/
               }
-
               var trow = $(RowTemplate(opts)).appendTo(tbody);
               Tips.setup(trow);
-
-              $("#modify_rp_" + opts.id).change(function(){
-                var val = $("#modify_rp_" + opts.id).val();
-                if (val == "default"){
-                  $("#div_rp_" + opts.id).hide();
-                } else if (val == "fixed"){
-                  $("#div_rp_" + opts.id).show();
-                  $("#available_rps_" + opts.id).attr("multiple", false);
-                } else {
-                  $("#div_rp_" + opts.id).show();
-                  $("#available_rps_" + opts.id).attr("multiple", true);
-                }
-              });
-
-              $("#linked_clone_"+opts.id).on("change", function(){
-                if ($("#linked_clone_"+opts.id).is(":checked")){
-                  $("#create_"+opts.id).show();
-                } else {
-                  $("#create_"+opts.id).hide();
-                  $("#create_copy_"+opts.id).prop("checked", false);
-                  $("#name_"+opts.id).hide();
-                }
-              });
-
-              $("#create_copy_"+opts.id).on("change", function(){
-                if ($("#create_copy_"+opts.id).is(":checked")){
-                  $("#name_"+opts.id).show();
-                } else {
-                  $("#name_"+opts.id).hide();
-                }
-              });
-
-              $('.check_item', trow).data("import_data", element);
+              setupAdvanced(opts, trow);
+              $(".check_item", trow).data("import_data", element);
             });
 
             var elementsTable = new DomDataTable(
@@ -170,7 +121,7 @@ define(function(require) {
                   "bDeferRender": false,
                   "ordering": false,
                   "aoColumnDefs": [
-                  {"sWidth": "35px", "aTargets": [0]},
+                  { "sWidth": "35px", "aTargets": [0] },
                   ],
                 },
                 "customTrListener": function(tableObj, tr){ return false; }
@@ -178,25 +129,58 @@ define(function(require) {
 
             elementsTable.initialize();
 
-            $("a.vcenter-table-select-all").text(Locale.tr("Select all %1$s Templates", elements.length));
-
             VCenterCommon.setupTable({
               context : newdiv,
               allSelected : Locale.tr("All %1$s Templates selected."),
               selected: Locale.tr("%1$s Templates selected.")
             });
 
-            context.off('click', '.clear_imported');
-            context.on('click', '.clear_imported', function() {
-              _fillVCenterTemplates(opts);
+            context.off("click", ".clear_imported");
+            context.on("click", ".clear_imported", function() {
+              _fillVCenterDatastores(opts);
               return false;
             });
-          }
-        });
+        }
       },
       error: function(response){
         context.hide();
         Notifier.onError({}, OpenNebulaError(response));
+      }
+    });
+  }
+
+  function setupAdvanced(opts, context){
+    $(".modify_rp", context).change(function(){
+      switch ($(this).val()){
+        case "default":
+          $("#div_rp_" + opts.id).hide();
+          break;
+        case "fixed":
+          $("#div_rp_" + opts.id).show();
+          $(".available_rps", context).attr("multiple", false);
+          break;
+        case "list":
+          $("#div_rp_" + opts.id).show();
+          $(".available_rps", context).attr("multiple", true);
+      }
+    });
+
+    $(".linked_clone", context).change(function(){
+      if ($(this).is(":checked")){
+        $(".div_create", context).show();
+      } else {
+        $(".div_create", context).hide();
+        $(".create_copy", context).prop("checked", false);
+        $("#name_" + opts.id, context).hide();
+      }
+    });
+
+    $(".create_copy", context).change(function(){
+      var name_input = $("#name_" + opts.id, context);
+      if ($(this).is(":checked")){
+        name_input.show();
+      } else {
+        name_input.hide();
       }
     });
   }
