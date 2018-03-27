@@ -16,6 +16,8 @@
 
 define(function(require) {
   var sprintf = require("sprintf").sprintf
+  var Notifier = require("utils/notifier");
+  var Navigation = require('utils/navigation');
 
   function _html() {
     return '<div class="vcenter_import"></div>';
