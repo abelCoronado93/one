@@ -146,7 +146,6 @@ define(function(require) {
   }
 
   function _import(context) {
-    var that = this;
     var vcenter_refs = [];
 
     var table = $("table.vcenter_import_table", context);
@@ -175,6 +174,7 @@ define(function(require) {
       },
       error: function (request, error_json) {
         Notifier.notifyError(request.responseJSON.error.message);
+        $("#get-vcenter-ds").click();
       }
     });
   }
