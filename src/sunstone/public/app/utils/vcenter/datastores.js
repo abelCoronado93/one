@@ -98,8 +98,10 @@ define(function(require) {
           var newdiv = $(content).appendTo($(".vcenter_datacenter_list", context));
           var tbody = $("#" + tableId + " tbody", context);
 
+          var ds_num = 0;
           $.each(response, function(datastore_name, element){
             if (element.cluster.length !== 0){
+              ds_num++;
               var opts = { name: element.simple_name, vcenter_ref: element.ref, datacenter: element.datacenter, cluster: element.cluster, free_mb: element.free_mb, total_mb: element.total_mb };
               var trow = $(RowTemplate(opts)).appendTo(tbody);
               $(".check_item", trow).data("import_data", element);
@@ -124,6 +126,8 @@ define(function(require) {
             });
 
           elementsTable.initialize();
+
+          $("a.vcenter-table-select-all", context).text(Locale.tr("Select all %1$s Datastores", ds_num));
 
           VCenterCommon.setupTable({
             context : newdiv,

@@ -129,6 +129,8 @@ define(function(require) {
 
             elementsTable.initialize();
 
+            $("a.vcenter-table-select-all", context).text(Locale.tr("Select all %1$s Templates", Object.keys(response).length));
+
             VCenterCommon.setupTable({
               context : newdiv,
               allSelected : Locale.tr("All %1$s Templates selected."),
