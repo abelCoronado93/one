@@ -147,6 +147,18 @@ get '/vcenter/templates' do
     end
 end
 
+post '/vcenter/templates' do
+    begin
+        $importer.process_import(params["templates"])
+
+        [200, $importer.output.to_json]
+    rescue Exception => e
+        logger.error("[vCenter] " + e.message)
+        error = Error.new(e.message)
+        error 403, error.to_json
+    end
+end
+
 post '/vcenter/image_rollback/:image_id' do
     begin
         image_id = params[:image_id]
